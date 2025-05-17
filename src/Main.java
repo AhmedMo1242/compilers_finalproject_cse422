@@ -1,8 +1,16 @@
 import ast.ASTBuilder;
 import ast.ASTNode;
+import ast.ClassNode;
+import ast.FeatureNode;
+import ast.FormalNode;
+import ast.MethodNode;
+import ast.AttributeNode;
 import ast.ProgramNode;
+import ast.expressions.*;
 import compiler.cool_lex;
 import compiler.cool_synParser;
+import ir.IRGenerator;
+import ir.TACInstruction;
 import semantic.SemanticAnalyzer;
 import semantic.SemanticError;
 
@@ -14,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
@@ -36,12 +45,17 @@ public class Main {
             return;
         }
         
+        // Run the simple IR test directly
+        System.out.println("\n=== RUNNING SIMPLE IR TEST ===");
+        testSimpleIRGeneration();
+        
         // Otherwise, run tests on all test files organized by category
         try {
             runAllLexerTests();
             runAllParserTests();
             runAllASTTests();
-            runAllSemanticTests(); // Added semantic analysis tests
+            runAllSemanticTests();
+            runAllIRTests();  // Added IR generation tests
             
             System.out.println("\nAll tests completed.");
         } catch (Exception e) {
@@ -65,10 +79,15 @@ public class Main {
         processTestFolder(Paths.get(TEST_DIR, "ast").toString(), "ast");
     }
     
-    // New method for semantic analysis tests
     private static void runAllSemanticTests() throws IOException {
         System.out.println("\n=== SEMANTIC ANALYSIS TESTS ===");
         processTestFolder(Paths.get(TEST_DIR, "semantic").toString(), "semantic");
+    }
+    
+    // New method for IR generation tests
+    private static void runAllIRTests() throws IOException {
+        System.out.println("\n=== IR GENERATION TESTS ===");
+        processTestFolder(Paths.get(TEST_DIR, "ir").toString(), "ir");
     }
     
     private static void processTestFolder(String folderPath, String mode) throws IOException {
@@ -100,6 +119,9 @@ public class Main {
                     break;
                 case "semantic":
                     testSemantic(input);
+                    break;
+                case "ir":
+                    testIR(input);  // Added IR test
                     break;
             }
         }
@@ -183,7 +205,6 @@ public class Main {
         System.out.println("------------------");
     }
     
-    // New method for semantic analysis testing
     private static void testSemantic(String input) {
         CharStream charStream = CharStreams.fromString(input);
         cool_lex lexer = new cool_lex(charStream);
@@ -245,6 +266,130 @@ public class Main {
         System.out.println("Semantic analysis completed.");
     }
     
+    // New method for IR generation testing
+    private static void testIR(String input) {
+        CharStream charStream = CharStreams.fromString(input);
+        cool_lex lexer = new cool_lex(charStream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        cool_synParser parser = new cool_synParser(tokens);
+        
+        // Add error listener to capture syntax errors
+        parser.removeErrorListeners();
+        SyntaxErrorCollector errorCollector = new SyntaxErrorCollector();
+        parser.addErrorListener(errorCollector);
+        
+        ParseTree parseTree = parser.program();
+        
+        if (errorCollector.hasErrors()) {
+            System.out.println("IR TEST OUTPUT:");
+            System.out.println("------------------");
+            System.out.println("Cannot generate IR - syntax errors exist");
+            System.out.println("------------------");
+            return;
+        }
+        
+        ASTBuilder astBuilder = new ASTBuilder();
+        ASTNode ast = astBuilder.visit(parseTree);
+        
+        if (!(ast instanceof ProgramNode)) {
+            System.out.println("IR TEST OUTPUT:");
+            System.out.println("------------------");
+            System.out.println("Cannot generate IR - invalid AST");
+            System.out.println("------------------");
+            return;
+        }
+        
+        ProgramNode programNode = (ProgramNode) ast;
+        
+        // Perform semantic analysis first
+        SemanticAnalyzer analyzer = new SemanticAnalyzer();
+        List<SemanticError> errors = analyzer.analyze(programNode);
+        
+        System.out.println("IR TEST OUTPUT:");
+        System.out.println("------------------");
+        
+        if (!errors.isEmpty()) {
+            System.out.println("Cannot generate IR - semantic errors exist:");
+            for (SemanticError error : errors) {
+                System.out.println("  - " + error);
+            }
+            System.out.println("------------------");
+            return;
+        }
+        
+        // Generate IR
+        IRGenerator irGenerator = new IRGenerator();
+        List<TACInstruction> instructions = irGenerator.generate(programNode);
+        
+        System.out.println("Generated IR:");
+        for (TACInstruction instr : instructions) {
+            System.out.println(instr);
+        }
+        
+        System.out.println("------------------");
+        System.out.println("IR generation completed.");
+    }
+    
+    /**
+     * Test IR generation with a simple program constructed directly
+     */
+    private static void testSimpleIRGeneration() {
+        System.out.println("Building a simple AST manually for IR generation testing...");
+        
+        // Create a simple program:
+        // class Main {
+        //   x: Int <- 5;
+        //   main(): Object {
+        //     let y: Int <- x + 10 in
+        //       y
+        //   };
+        // };
+        
+        // Create the program node
+        ProgramNode program = new ProgramNode(1);
+        
+        // Create the Main class
+        ClassNode mainClass = new ClassNode(1, "Main", "Object");
+        
+        // Create attribute x: Int <- 5
+        AttributeNode attrX = new AttributeNode(2, "x", "Int");
+        attrX.setInitialization(new IntConstNode(2, 5));
+        
+        // Create main method
+        MethodNode mainMethod = new MethodNode(3, "main", "Object");
+        
+        // Create the method body: let y: Int <- x + 10 in y
+        LetNode letExpr = new LetNode(4);
+        letExpr.addVariable("y", "Int", 
+            new BinaryOpNode(4, BinaryOpNode.Operator.PLUS, 
+                new IdentifierNode(4, "x"), 
+                new IntConstNode(4, 10))
+        );
+        letExpr.setBody(new IdentifierNode(5, "y"));
+        
+        mainMethod.setBody(letExpr);
+        
+        // Add features to class
+        mainClass.addFeature(attrX);
+        mainClass.addFeature(mainMethod);
+        
+        // Add class to program
+        program.addClass(mainClass);
+        
+        // Generate IR code
+        IRGenerator irGenerator = new IRGenerator();
+        List<TACInstruction> instructions = irGenerator.generate(program);
+        
+        // Print the generated IR
+        System.out.println("\nGENERATED IR CODE:");
+        System.out.println("==================");
+        for (TACInstruction instr : instructions) {
+            System.out.println(instr);
+        }
+        System.out.println("==================");
+        System.out.println("IR generation test completed.");
+    }
+    
     private static void runFullCompiler(String input) {
         // First run lexer
         System.out.println("\nSTAGE 1: LEXICAL ANALYSIS");
@@ -302,7 +447,7 @@ public class Main {
         System.out.println("AST construction successful.");
         System.out.println();
         
-        // Added semantic analysis stage
+        // Perform semantic analysis
         System.out.println("STAGE 4: SEMANTIC ANALYSIS");
         System.out.println("=========================");
         
@@ -322,10 +467,29 @@ public class Main {
             return;
         }
         
-        // Stage 5: IR Generation would be here
+        // Add IR generation stage
         System.out.println("\nSTAGE 5: IR GENERATION");
         System.out.println("=====================");
-        System.out.println("IR Generation not implemented yet.");
+        
+        if (semanticErrors.isEmpty()) {
+            // Generate IR
+            IRGenerator irGenerator = new IRGenerator();
+            List<TACInstruction> instructions = irGenerator.generate(programNode);
+            
+            System.out.println("Generated IR (first 20 instructions):");
+            int count = 0;
+            for (TACInstruction instr : instructions) {
+                System.out.println(instr);
+                count++;
+                if (count >= 20) {
+                    System.out.println("... (additional instructions not shown)");
+                    break;
+                }
+            }
+            System.out.println("\nIR generation completed successfully.");
+        } else {
+            System.out.println("IR Generation skipped due to semantic errors.");
+        }
     }
     
     /**
