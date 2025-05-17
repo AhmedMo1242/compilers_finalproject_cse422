@@ -1,13 +1,11 @@
 package ast;
 
-import org.antlr.v4.runtime.Token;
 import ast.expressions.*;
 
 // Import the packaged ANTLR classes
 import compiler.cool_synBaseVisitor;
 import compiler.cool_synParser;
 
-import java.util.ArrayList;
 
 /**
  * Visitor implementation that converts the ANTLR parse tree to our AST.

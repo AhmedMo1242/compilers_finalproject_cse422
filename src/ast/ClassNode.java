@@ -30,6 +30,10 @@ public class ClassNode extends ASTNode {
         return parentClass;
     }
     
+    public String getParent() {
+        return parentClass;
+    }
+    
     public List<FeatureNode> getFeatures() {
         return features;
     }

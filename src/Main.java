@@ -3,6 +3,8 @@ import ast.ASTNode;
 import ast.ProgramNode;
 import compiler.cool_lex;
 import compiler.cool_synParser;
+import semantic.SemanticAnalyzer;
+import semantic.SemanticError;
 
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
@@ -39,6 +41,7 @@ public class Main {
             runAllLexerTests();
             runAllParserTests();
             runAllASTTests();
+            runAllSemanticTests(); // Added semantic analysis tests
             
             System.out.println("\nAll tests completed.");
         } catch (Exception e) {
@@ -60,6 +63,12 @@ public class Main {
     private static void runAllASTTests() throws IOException {
         System.out.println("\n=== AST CONSTRUCTION TESTS ===");
         processTestFolder(Paths.get(TEST_DIR, "ast").toString(), "ast");
+    }
+    
+    // New method for semantic analysis tests
+    private static void runAllSemanticTests() throws IOException {
+        System.out.println("\n=== SEMANTIC ANALYSIS TESTS ===");
+        processTestFolder(Paths.get(TEST_DIR, "semantic").toString(), "semantic");
     }
     
     private static void processTestFolder(String folderPath, String mode) throws IOException {
@@ -88,6 +97,9 @@ public class Main {
                     break;
                 case "ast":
                     testAst(input);
+                    break;
+                case "semantic":
+                    testSemantic(input);
                     break;
             }
         }
@@ -171,6 +183,68 @@ public class Main {
         System.out.println("------------------");
     }
     
+    // New method for semantic analysis testing
+    private static void testSemantic(String input) {
+        CharStream charStream = CharStreams.fromString(input);
+        cool_lex lexer = new cool_lex(charStream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        cool_synParser parser = new cool_synParser(tokens);
+        
+        // Add error listener to capture syntax errors
+        parser.removeErrorListeners();
+        SyntaxErrorCollector errorCollector = new SyntaxErrorCollector();
+        parser.addErrorListener(errorCollector);
+        
+        ParseTree parseTree = parser.program();
+        
+        if (errorCollector.hasErrors()) {
+            System.out.println("SEMANTIC TEST OUTPUT:");
+            System.out.println("------------------");
+            System.out.println("Cannot perform semantic analysis - syntax errors exist:");
+            for (String error : errorCollector.getErrors()) {
+                System.out.println("  - " + error);
+            }
+            System.out.println("------------------");
+            return;
+        }
+        
+        ASTBuilder astBuilder = new ASTBuilder();
+        ASTNode ast = astBuilder.visit(parseTree);
+        
+        System.out.println("SEMANTIC TEST OUTPUT:");
+        System.out.println("------------------");
+        
+        if (ast == null) {
+            System.err.println("Failed to build AST. Cannot perform semantic analysis.");
+            System.out.println("------------------");
+            return;
+        }
+        
+        if (!(ast instanceof ProgramNode)) {
+            System.err.println("Expected ProgramNode at the root of AST. Cannot perform semantic analysis.");
+            System.out.println("------------------");
+            return;
+        }
+        
+        ProgramNode programNode = (ProgramNode) ast;
+        
+        // Perform semantic analysis
+        SemanticAnalyzer analyzer = new SemanticAnalyzer();
+        List<SemanticError> errors = analyzer.analyze(programNode);
+        
+        if (errors.isEmpty()) {
+            System.out.println("No semantic errors found.");
+        } else {
+            System.out.println("Semantic errors found:");
+            for (SemanticError error : errors) {
+                System.out.println("  - " + error);
+            }
+        }
+        
+        System.out.println("------------------");
+        System.out.println("Semantic analysis completed.");
+    }
+    
     private static void runFullCompiler(String input) {
         // First run lexer
         System.out.println("\nSTAGE 1: LEXICAL ANALYSIS");
@@ -181,13 +255,77 @@ public class Main {
         // Then parse
         System.out.println("STAGE 2: SYNTAX ANALYSIS");
         System.out.println("=======================");
-        testParser(input);
+        
+        CharStream charStream = CharStreams.fromString(input);
+        cool_lex lexer = new cool_lex(charStream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        cool_synParser parser = new cool_synParser(tokens);
+        
+        // Add error listener to capture syntax errors
+        parser.removeErrorListeners();
+        SyntaxErrorCollector errorCollector = new SyntaxErrorCollector();
+        parser.addErrorListener(errorCollector);
+        
+        ParseTree parseTree = parser.program();
+        
+        if (errorCollector.hasErrors()) {
+            System.out.println("Parsing failed with syntax errors:");
+            List<String> errors = errorCollector.getErrors();
+            for (String error : errors) {
+                System.out.println("  - " + error);
+            }
+            System.out.println("\nCompilation stopped due to syntax errors.");
+            return;
+        }
+        
+        System.out.println("Parsing completed successfully.");
         System.out.println();
         
-        // Finally build AST
+        // Build AST
         System.out.println("STAGE 3: AST CONSTRUCTION");
         System.out.println("========================");
-        testAst(input);
+        ASTBuilder astBuilder = new ASTBuilder();
+        ASTNode ast = astBuilder.visit(parseTree);
+        
+        if (ast == null) {
+            System.err.println("Failed to build AST.");
+            System.out.println("\nCompilation stopped due to AST construction failure.");
+            return;
+        }
+        
+        if (!(ast instanceof ProgramNode)) {
+            System.err.println("Expected ProgramNode at the root of AST.");
+            System.out.println("\nCompilation stopped due to invalid AST structure.");
+            return;
+        }
+        
+        System.out.println("AST construction successful.");
+        System.out.println();
+        
+        // Added semantic analysis stage
+        System.out.println("STAGE 4: SEMANTIC ANALYSIS");
+        System.out.println("=========================");
+        
+        ProgramNode programNode = (ProgramNode) ast;
+        SemanticAnalyzer analyzer = new SemanticAnalyzer();
+        List<SemanticError> semanticErrors = analyzer.analyze(programNode);
+        
+        if (semanticErrors.isEmpty()) {
+            System.out.println("No semantic errors found.");
+            System.out.println("Semantic analysis completed successfully.");
+        } else {
+            System.out.println("Semantic errors found:");
+            for (SemanticError error : semanticErrors) {
+                System.out.println("  - " + error);
+            }
+            System.out.println("\nCompilation stopped due to semantic errors.");
+            return;
+        }
+        
+        // Stage 5: IR Generation would be here
+        System.out.println("\nSTAGE 5: IR GENERATION");
+        System.out.println("=====================");
+        System.out.println("IR Generation not implemented yet.");
     }
     
     /**
@@ -213,4 +351,3 @@ public class Main {
         }
     }
 }
-

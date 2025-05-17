@@ -32,6 +32,31 @@ public class LetNode extends ExpressionNode {
         return body;
     }
     
+    public int getVarCount() {
+        return bindings.size();
+    }
+    
+    public String getVarName(int index) {
+        if (index >= 0 && index < bindings.size()) {
+            return bindings.get(index).getName();
+        }
+        return null;
+    }
+    
+    public String getVarType(int index) {
+        if (index >= 0 && index < bindings.size()) {
+            return bindings.get(index).getType();
+        }
+        return null;
+    }
+    
+    public ExpressionNode getVarInit(int index) {
+        if (index >= 0 && index < bindings.size()) {
+            return bindings.get(index).getInit();
+        }
+        return null;
+    }
+    
     @Override
     public String toString() {
         StringBuilder result = new StringBuilder("let ");
@@ -61,6 +86,18 @@ public class LetNode extends ExpressionNode {
             this.name = name;
             this.type = type;
             this.init = init;
+        }
+        
+        public String getName() {
+            return name;
+        }
+        
+        public String getType() {
+            return type;
+        }
+        
+        public ExpressionNode getInit() {
+            return init;
         }
         
         @Override

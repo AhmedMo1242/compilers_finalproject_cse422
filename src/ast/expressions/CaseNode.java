@@ -29,6 +29,35 @@ public class CaseNode extends ExpressionNode {
         return branches;
     }
     
+    public ExpressionNode getExpr() {
+        return expression;
+    }
+    
+    public int getBranchCount() {
+        return branches.size();
+    }
+    
+    public String getBranchVariable(int index) {
+        if (index >= 0 && index < branches.size()) {
+            return branches.get(index).getVariableName();
+        }
+        return null;
+    }
+    
+    public String getBranchType(int index) {
+        if (index >= 0 && index < branches.size()) {
+            return branches.get(index).getTypeName();
+        }
+        return null;
+    }
+    
+    public ExpressionNode getBranchExpr(int index) {
+        if (index >= 0 && index < branches.size()) {
+            return branches.get(index).getBody();
+        }
+        return null;
+    }
+    
     @Override
     public String toString() {
         StringBuilder result = new StringBuilder("case ").append(expression).append(" of\n");
@@ -53,6 +82,18 @@ public class CaseNode extends ExpressionNode {
             this.variableName = variableName;
             this.typeName = typeName;
             this.body = body;
+        }
+        
+        public String getVariableName() {
+            return variableName;
+        }
+        
+        public String getTypeName() {
+            return typeName;
+        }
+        
+        public ExpressionNode getBody() {
+            return body;
         }
         
         @Override

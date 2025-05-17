@@ -31,6 +31,10 @@ public class MethodNode extends FeatureNode {
         return body;
     }
     
+    public String getReturnType() {
+        return getType();
+    }
+    
     @Override
     public String toString() {
         StringBuilder result = new StringBuilder("Method " + getName() + "(");

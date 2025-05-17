@@ -22,6 +22,15 @@ public class IfNode extends ExpressionNode {
         return condition;
     }
     
+    public ExpressionNode getThenBranch() {
+        return thenExpr;
+    }
+    
+    public ExpressionNode getElseBranch() {
+        return elseExpr;
+    }
+    
+    // Keep the original methods for backward compatibility
     public ExpressionNode getThenExpr() {
         return thenExpr;
     }
